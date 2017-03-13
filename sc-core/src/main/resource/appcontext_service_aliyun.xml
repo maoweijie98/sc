@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:jdbc="http://www.springframework.org/schema/jdbc" xmlns:jee="http://www.springframework.org/schema/jee"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:dubbo="http://code.alibabatech.com/schema/dubbo"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc.xsd
+		http://www.springframework.org/schema/jee http://www.springframework.org/schema/jee/spring-jee.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+		http://code.alibabatech.com/schema/dubbo http://code.alibabatech.com/schema/dubbo/dubbo.xsd">
+
+
+
+	<!-- 加载配置属性文件 -->
+	<context:property-placeholder
+		ignore-unresolvable="false"
+		location="classpath:/service.properties,classpath:/jdbc.properties" />
+	
+	<!-- 使用Annotation自动注册Bean -->
+	<context:component-scan base-package="com.jg"><!-- base-package
+			如果多个，用“,”分隔 -->
+		<!-- Dao由mybatis创建 -->
+		<context:exclude-filter type="annotation"
+			expression="com.jg.repository.common.MyBatisRepository" />
+		<!-- 使用dubbo手工创建服务，取消扫描注入 -->
+		<context:exclude-filter type="annotation"
+			expression="org.springframework.stereotype.Service" />
+	</context:component-scan>
+	
+	<!-- 加载本地服务 -->
+	<import resource="classpath:/service-local.xml" />
+	<!-- Dubbo注册中心-->
+	<dubbo:registry address="multicast://224.5.6.7:1234" />
+	<!-- 加载服务 -->
+	<import resource="classpath:/serive-dubbo.xml" />
+	<tx:annotation-driven />
+	<!-- 
+		|会员数据相关配置
+	-->
+	<bean id="sqlSessionFactory_sc" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource_member" />
+		<property name="typeAliasesPackage"
+				  value="com.jg.entity" />
+		<property name="mapperLocations">
+			<list>
+				<value>classpath:/com/jg/repository/mapper/*.xml</value>
+				<value>classpath:/com/jg/repository/user/*.xml</value>
+			</list>
+		</property>
+		<property name="configLocation" value="classpath:/mybatis-config.xml"></property>
+	</bean>
+	<!-- 扫描basePackage下所有以@MyBatisRepository注解的接口 -->
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="sqlSessionFactoryBeanName" value="dataSource_member" />
+		<property name="basePackage"
+				  value="com.jg.repository" />
+		<property name="annotationClass"
+				  value="com.jg.repository.common.MyBatisRepository" />
+	</bean>
+
+	<!-- 扫描basePackage下所有以@MyBatisRepository注解的接口 -->
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory_member" />
+		<property name="basePackage"
+			value="com.jg.repository.*"/>
+		<property name="annotationClass"
+			value="com.jg.repository.common.MyBatisRepository" />
+	</bean>
+
+	<!-- 
+		|会员数据相关配置 
+	-->
+	<bean id="sqlSessionFactory_member" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource_member" />
+		<property name="typeAliasesPackage"
+			value="com.jg.repository.*" />
+		<property name="mapperLocations">
+			<list>
+				<value>classpath:/com/jg/repository/*.xml</value>
+			</list>
+		</property>
+		<property name="configLocation" value="classpath:/mybatis-config.xml"></property>
+	</bean>
+	<bean id="transactionManager_member"
+		  class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource_member" />
+	</bean>
+
+	<!-- production 环境 -->
+	<beans profile="production">
+		<!-- f2 member-->
+		<bean id="dataSource_member" class="com.alibaba.druid.pool.DruidDataSource"
+			init-method="init" destroy-method="close">
+			<property name="driverClassName" value="${driver}" />
+			<property name="url" value="${url}" />
+			<property name="username" value="${user}" />
+			<property name="password" value="${password}" />
+			<property name="initialSize" value="${jdbc.pool.minIdle}" />
+			<property name="minIdle" value="${jdbc.pool.minIdle}" />
+			<property name="maxActive" value="${jdbc.pool.maxActive}" />
+			<property name="maxWait" value="60000" />
+			<property name="timeBetweenEvictionRunsMillis" value="60000" />
+			<property name="minEvictableIdleTimeMillis" value="300000" />
+			<property name="validationQuery" value="SELECT 'x'" />
+			<property name="testWhileIdle" value="true" />
+			<property name="testOnBorrow" value="false" />
+			<property name="testOnReturn" value="false" />		
+		</bean>
+	</beans>
+</beans>
